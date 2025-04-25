@@ -1,13 +1,11 @@
 import pybloom_live
-filename = 'unique_sorted_noun_master.txt'                      
 
 class DataStore:
     def __init__(self):
         self.nouns = None
 
-    def populate_nouns(self):
-        global filename
-        self.nouns = pybloom_live.BloomFilter(capacity=200000, error_rate=0.001)    # 1,53,548  -> 200000       
+    def populate_words(self, filename, cap, err):
+        self.nouns = pybloom_live.BloomFilter(capacity=cap, error_rate=err)       
         try:
             with open(filename, 'r', encoding='utf-8') as file:
                 for line in file:

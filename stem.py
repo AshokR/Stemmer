@@ -1,8 +1,8 @@
 import bloom_filter
 
 data_store = bloom_filter.DataStore()
-data_store.populate_nouns()
-is_suffix_removed = False
+data_store.populate_words('unique_sorted_noun_master.txt', 200000, 0.001)    # Nouns: 1,53,548  -> 200000
+is_affix_removed = False
 vallinam = ("க", "ச", "ட", "த", "ப", "ற")
 nedil_ah_yay_oh = ["ா","ே","ோ"]
 nedil_ah_ee = ["ா", "ீ"]
@@ -13,8 +13,8 @@ def remove_behind_ai_suffixes(word):
     # Iterate through each behind ஐ வேற்றுமை suffix, remove it if found and also fix the ending
     for s in behind_ai_suffixes:
         if word.endswith(s):                # மரத்தைத்தாண்டி, மரத்தைவிட
-            global is_suffix_removed 
-            is_suffix_removed = True
+            global is_affix_removed 
+            is_affix_removed = True
             word = word[:-len(s)]
             return word    
     return word
@@ -24,14 +24,11 @@ vetrumai_uyir_mudhal_suffixes = ["ிடம்", "ுடன்", "ுடைய",
 def remove_vetrumai_uyir_mudhal_suffixes(word):
     for s in vetrumai_uyir_mudhal_suffixes:
         if word.endswith(s):
-            global is_suffix_removed 
-            is_suffix_removed = True
-            global vallinam
+            global is_affix_removed 
+            is_affix_removed = True
             vallinam_list = list(vallinam)
             vallinam_list.remove("ட")
             vallinam_less_ta = tuple(vallinam_list)
-            global nedil_ah_yay_oh
-            global nedil_ah_ee
             word = word[:-len(s)]
             if word.endswith("வ"): 
                 if word[-2:-1] in nedil_ah_ee:          # if the prior உயிர் is ஆ, ஈ
@@ -67,8 +64,8 @@ def remove_behind_ku_suffixes(word):
     # Iterate through each behind கு வேற்றுமை suffix, remove it if found and also fix the ending
     for s in behind_ku_suffixes:
         if word.endswith(s):
-            global is_suffix_removed 
-            is_suffix_removed = True
+            global is_affix_removed 
+            is_affix_removed = True
             word = word[:-len(s)]
             if word.endswith("கு"):          # மரத்துக்குப்பதிலாக
                 return word
@@ -83,14 +80,11 @@ ku_vetrumai_suffix = "க்கு"
 def remove_ku_vetrumai_suffix(word):
     # Check கு வேற்றுமை suffix, remove it if found and also fix the ending
     if word.endswith(ku_vetrumai_suffix):
-            global is_suffix_removed 
-            is_suffix_removed = True
-            global vallinam
+            global is_affix_removed 
+            is_affix_removed = True
             vallinam_list = list(vallinam)
             vallinam_list.remove("ட")
             vallinam_less_ta = tuple(vallinam_list)
-            global nedil_ah_yay_oh
-            global nedil_ah_ee
             word = word[:-len(ku_vetrumai_suffix)]
             if word.endswith("வு"): 
                 word = word[:-len("வு")]
@@ -126,8 +120,8 @@ def remove_idam_udan_vetrumai_mei_mudhal_suffixes(word):
     # Iterate through each இடம் வேற்றுமை மெய் முதல் suffix, remove it if found
     for s in idam_udan_vetrumai_mei_mudhal_suffixes:
         if word.endswith(s):                    # காடுவரைக்கும்
-            global is_suffix_removed 
-            is_suffix_removed = True
+            global is_affix_removed 
+            is_affix_removed = True
             word = word[:-len(s)]
             return word   
     return word
@@ -137,8 +131,8 @@ plural_suffix = "கள்"
 def remove_plural_suffix(word):
      # Check பன்மை suffix, remove it if found and also fix the ending
     if word.endswith(plural_suffix):
-            global is_suffix_removed 
-            is_suffix_removed = True
+            global is_affix_removed 
+            is_affix_removed = True
             word = word[:-len(plural_suffix)]
             if word.endswith("ங்"):                  # மரங்கள்
                 return word[:-len("ங்")] + "ம்"
@@ -152,22 +146,30 @@ def remove_plural_suffix(word):
                 return word
     return word
 
-# Look for presence of each category of suffix in the word, remove it, if found, fix the ending and return 
-def tamil_stemmer(word):   
-    word = remove_behind_ku_suffixes(word)
-    word = remove_idam_udan_vetrumai_mei_mudhal_suffixes(word)
-    word = remove_behind_ai_suffixes(word)
-    word = remove_ku_vetrumai_suffix(word)
-    word = remove_vetrumai_uyir_mudhal_suffixes(word)
-    word = remove_plural_suffix(word)
-
-    global is_suffix_removed
-    # If the word has a match in the lexicon, we have found the stem. If no suffix is found in this iteration, nothing further can be done.
-    if data_store.is_word_in_lexicon(word) or is_suffix_removed == False:
+# Define the list of affix stripping functions
+affix_stripping_functions = [
+    remove_behind_ku_suffixes,
+    remove_idam_udan_vetrumai_mei_mudhal_suffixes,
+    remove_behind_ai_suffixes,
+    remove_ku_vetrumai_suffix,
+    remove_vetrumai_uyir_mudhal_suffixes,
+    remove_plural_suffix,
+]
+def noun_stemmer(word):
+    global is_affix_removed
+    # Iterate through each affix stripping function, and execute it
+    for func in affix_stripping_functions:
+        word = func(word)
+        if is_affix_removed:
+            if data_store.is_word_in_lexicon(word):
+                print(word)
+                return
+    # If no suffix is found in this iteration, nothing further can be done.
+    if is_affix_removed == False:
         print(word)
     else:
-        is_suffix_removed = False
-        word = tamil_stemmer(word)      # Recursive call to stem the word iteratively
+        is_affix_removed = False
+        word = noun_stemmer(word)      # Recursive call to stem the word iteratively
     return word
 
 word = "மரங்களுக்கருகிலிருந்து" 
@@ -176,4 +178,5 @@ word = "மரங்களுக்கருகிலிருந்து"
 if data_store.is_word_in_lexicon(word):
     print(word)
 else:
-    word = tamil_stemmer(word)          
+    # word = tamil_stemmer(word)      
+    word = noun_stemmer(word)     
